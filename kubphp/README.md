@@ -14,3 +14,4 @@
 * Otherwise, install kubectl and gcloud SDK on your local machine
 * Read this tutorial: https://cloud.google.com/kubernetes-engine/docs/tutorials/hello-app
 * And this one: https://matthewpalmer.net/kubernetes-app-developer/articles/php-fpm-nginx-kubernetes.html
+* `docker build . -f deploy/Dockerfile -t gcr.io/kubpractice/kubphp:1.0.1`

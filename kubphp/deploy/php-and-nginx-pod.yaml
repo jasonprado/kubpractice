@@ -29,7 +29,7 @@ spec:
 
       containers:
         # PHP-FPM app
-        - image: gcr.io/kubpractice/kubphp:1.0.0
+        - image: gcr.io/kubpractice/kubphp:1.0.1
           name: app
           volumeMounts:
             - name: app-files
