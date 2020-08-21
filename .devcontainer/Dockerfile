@@ -3,15 +3,15 @@
 # Licensed under the MIT License. See https://go.microsoft.com/fwlink/?linkid=2090316 for license information.
 #-------------------------------------------------------------------------------------------------------------
 
-FROM mcr.microsoft.com/vscode/devcontainers/javascript-node:12
+ARG VARIANT=7
+FROM mcr.microsoft.com/vscode/devcontainers/php:${VARIANT}
 
-# The javascript-node image includes a non-root node user with sudo access. Use
-# the "remoteUser" property in devcontainer.json to use it. On Linux, the container
-# user's GID/UIDs will be updated to match your local UID/GID when using the image
-# or dockerFile property. Update USER_UID/USER_GID below if you are using the
-# dockerComposeFile property or want the image itself to start with different ID
-# values. See https://aka.ms/vscode-remote/containers/non-root-user for details.
-ARG USERNAME=node
+# [Optional] Install a version of Node.js using nvm for front end dev
+ARG INSTALL_NODE="true"
+ARG NODE_VERSION="lts/*"
+RUN if [ "${INSTALL_NODE}" = "true" ]; then su vscode -c "source /usr/local/share/nvm/nvm.sh && nvm install ${NODE_VERSION} 2>&1"; fi
+
+ARG USERNAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
@@ -22,17 +22,15 @@ ARG TARGET_SOCKET=/var/run/docker.sock
 ARG CLOUD_SDK_VERSION=232.0.0
 ENV CLOUD_SDK_VERSION=$CLOUD_SDK_VERSION
 
-# Alter node user as needed, install tslint, typescript. eslint is installed by javascript image
+# Alter vscode user as needed, install tslint, typescript. eslint is installed by javascript image
 RUN if [ "$USER_GID" != "1000" ] || [ "$USER_UID" != "1000" ]; then \
         groupmod --gid $USER_GID $USERNAME \
         && usermod --uid $USER_UID --gid $USER_GID $USERNAME \
         && chmod -R $USER_UID:$USER_GID /home/$USERNAME \
         && chmod -R $USER_UID:root /usr/local/share/nvm /usr/local/share/npm-global; \
     fi \
-    && echo node ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
-    && chmod 0440 /etc/sudoers.d/$USERNAME \
-    # Install tslint, typescript. eslint is installed by javascript image
-    && sudo -u ${USERNAME} npm install -g typescript
+    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
 
 ENV GIT_EDITOR="code -w"
 ENV EDITOR="code -w"
@@ -69,11 +67,18 @@ RUN apt-get update \
     && apt-get install -y postgresql-client \
     #
     # Make python3 default
-    && update-alternatives --install /usr/bin/python python /usr/bin/python2.7 1 \
-    && update-alternatives --install /usr/bin/python python /usr/bin/python3.5 2 \
+    # NOTE: The php container template doesn't have python3.5. Investigate.
+    # && update-alternatives --install /usr/bin/python python /usr/bin/python2.7 1 \
+    # && update-alternatives --install /usr/bin/python python /usr/bin/python3.5 2 \
+    # fish aliases
+    && mkdir -p /home/$USERNAME/.config/fish \
+    && echo "alias k='kubectl'" >> /home/$USERNAME/.config/fish/config.fish \
+    && chown -R $USERNAME /home/$USERNAME/.config/fish \
+    # Install composer, symfony
+    && /bin/sh /tmp/library-scripts/install-composer.sh \
+    && /bin/sh /tmp/library-scripts/install-symfony.sh \
     # Clean up
     && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* /tmp/library-scripts/
-
 
 COPY copy-kube-config.sh /usr/local/share/
 RUN chown ${USERNAME}:root /usr/local/share/copy-kube-config.sh \
