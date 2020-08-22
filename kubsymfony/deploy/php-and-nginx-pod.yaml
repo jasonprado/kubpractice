@@ -1,0 +1,51 @@
+# Defines a k8s pod containing a PHP-FPM app and nginx webserver.
+# Currently serves files from a shared volume copied from the app image.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php-and-nginx-pod-deployment
+  labels:
+    component: php-and-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: php-and-nginx
+  template:
+    metadata:
+      labels:
+        component: php-and-nginx
+    spec:
+      volumes:
+        # Shared files for nginx to serve and PHP to execute; fill upon start
+        - name: app-files
+          emptyDir: {}
+
+        # ConfigMap for nginx
+        - name: nginx-config-volume
+          configMap:
+            name: nginx-config
+
+      containers:
+        # PHP-FPM symfony app
+        - image: gcr.io/kubpractice/kubsymfony:1.0.0
+          name: app
+          volumeMounts:
+            - name: app-files
+              mountPath: /var/www/html
+
+          # After the app container starts, copy app resources out into the shared folder for nginx to serve.
+          lifecycle:
+            postStart:
+              exec:
+                command: ["/bin/sh", "-c", "cp -rp /app/. /var/www/html"]
+
+        - image: nginx:1.7.9
+          name: nginx
+          volumeMounts:
+            - name: app-files
+              mountPath: /var/www/html
+            - name: nginx-config-volume
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
